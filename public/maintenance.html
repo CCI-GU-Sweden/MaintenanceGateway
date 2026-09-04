@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Service temporarily unavailable</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+      background: #111827;
+      color: #f9fafb;
+    }
+
+    main {
+      width: min(90%, 700px);
+      text-align: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      margin-bottom: 0.5rem;
+      font-size: 2rem;
+    }
+
+    .clock {
+      margin: 2rem 0;
+
+      font-size: clamp(4rem, 12vw, 7rem);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .message {
+      font-size: 1.2rem;
+      color: #d1d5db;
+    }
+
+    .schedule {
+      margin-top: 1.5rem;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+
+<body>
+
+  <main>
+    <h1>Services are currently offline</h1>
+
+    <div
+      id="clock"
+      class="clock"
+      aria-label="Current time"
+    >
+      --:--:--
+    </div>
+
+    <p class="message">
+      The services are temporarily unavailable.
+    </p>
+
+    <p class="schedule">
+      Normal availability: 06:00–20:00
+    </p>
+  </main>
+
+  <script>
+    const clock = document.getElementById("clock");
+
+    function updateClock() {
+      clock.textContent =
+        new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Europe/Stockholm",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false
+        }).format(new Date());
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "maintenance-gateway",
+  "version": "0.1.0",
+  "description": "Lightweight maintenance gateway for Kubernetes services",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "5.2.1"
+  }
+}
