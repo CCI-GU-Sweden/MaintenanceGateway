@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maintenance-gateway-config
+data:
+
+  TIMEZONE: "Europe/Stockholm"
+
+  MAINTENANCE_FROM: "20:00"
+  MAINTENANCE_UNTIL: "06:00"
+
+  OMERO_HOST: "omero-web-test.apps.k8s.gu.se"
+  OMERO_TARGET: "http://omero-web:4080"
+
+  FLASK_HOST: "flaskpost.apps.k8s.gu.se"
+  FLASK_TARGET: "http://flask-app:5000"
+
+  DASHBOARD_HOST: "dashboard-test-core-omero-test.apps.k8s.gu.se"
+  DASHBOARD_TARGET: "http://dashboard-test:8080"
