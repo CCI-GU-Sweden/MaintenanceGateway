@@ -10,22 +10,30 @@ const PORT = Number(process.env.PORT ?? 3000);
 const TIMEZONE =
   process.env.TIMEZONE ?? "Europe/Stockholm";
 
-const MAINTENANCE_FROM =
-  process.env.MAINTENANCE_FROM ?? "20:00";
-
-const MAINTENANCE_UNTIL =
-  process.env.MAINTENANCE_UNTIL ?? "06:00";
-
-
 const routes = {
-  [process.env.OMERO_HOST]:
-    process.env.OMERO_TARGET,
+  [process.env.OMERO_HOST]: {
+    name: "OMERO",
+    target: process.env.OMERO_TARGET,
+    start: process.env.OMERO_START,
+    stop: process.env.OMERO_STOP,
+    days: process.env.OMERO_DAYS
+  },
 
-  [process.env.FLASK_HOST]:
-    process.env.FLASK_TARGET,
+  [process.env.FLASK_HOST]: {
+    name: "Upload service",
+    target: process.env.FLASK_TARGET,
+    start: process.env.FLASK_START,
+    stop: process.env.FLASK_STOP,
+    days: process.env.FLASK_DAYS
+  },
 
-  [process.env.DASHBOARD_HOST]:
-    process.env.DASHBOARD_TARGET
+  [process.env.DASHBOARD_HOST]: {
+    name: "Dashboard",
+    target: process.env.DASHBOARD_TARGET,
+    start: process.env.DASHBOARD_START,
+    stop: process.env.DASHBOARD_STOP,
+    days: process.env.DASHBOARD_DAYS
+  }
 };
 
 
@@ -43,49 +51,58 @@ function timeToMinutes(value) {
   return hours * 60 + minutes;
 }
 
+function currentStockholmTime() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIMEZONE,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(new Date());
 
-function currentMinutes() {
-  const parts =
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: TIMEZONE,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    }).formatToParts(new Date());
-
-  const values =
-    Object.fromEntries(
-      parts.map(part => [
-        part.type,
-        part.value
-      ])
-    );
-
-  return (
-    Number(values.hour) * 60 +
-    Number(values.minute)
+  const values = Object.fromEntries(
+    parts.map(part => [part.type, part.value])
   );
+
+  const weekdayMap = {
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+    Sun: 7
+  };
+
+  return {
+    day: weekdayMap[values.weekday],
+    minutes:
+      Number(values.hour) * 60 +
+      Number(values.minute)
+  };
 }
 
+function isServiceOpen(route) {
+  const now = currentStockholmTime();
 
-function isScheduledMaintenance() {
-  const now = currentMinutes();
+  const allowedDays = route.days
+    .split(",")
+    .map(Number);
 
-  const from =
-    timeToMinutes(MAINTENANCE_FROM);
-
-  const until =
-    timeToMinutes(MAINTENANCE_UNTIL);
-
-  // Example:
-  // 20:00 → 06:00 crosses midnight
-  if (from > until) {
-    return now >= from || now < until;
+  if (!allowedDays.includes(now.day)) {
+    return false;
   }
 
-  return now >= from && now < until;
-}
+  const start = timeToMinutes(route.start);
+  const stop = timeToMinutes(route.stop);
 
+  if (start < stop) {
+    return now.minutes >= start && now.minutes < stop;
+  }
+
+  // Handles a window crossing midnight.
+  return now.minutes >= start || now.minutes < stop;
+}
 
 function sendMaintenancePage(res) {
   return res.sendFile(
@@ -97,6 +114,24 @@ function sendMaintenancePage(res) {
   );
 }
 
+app.get("/maintenance-config", (req, res) => {
+  const hostname = req.hostname.toLowerCase();
+  const route = routes[hostname];
+
+  if (!route) {
+    return res.status(404).json({
+      error: "Unknown service"
+    });
+  }
+
+  res.json({
+    name: route.name,
+    start: route.start,
+    stop: route.stop,
+    days: route.days,
+    timezone: TIMEZONE
+  });
+});
 
 app.get("/healthz", (_req, res) => {
   res.status(200).json({
@@ -117,10 +152,8 @@ const proxy = createProxyMiddleware({
   target: "http://127.0.0.1",
 
   router: (req) => {
-    const hostname =
-      req.hostname.toLowerCase();
-
-    return routes[hostname];
+    const route = routes[req.hostname.toLowerCase()];
+    return route?.target;
   },
 
   changeOrigin: false,
@@ -141,39 +174,17 @@ const proxy = createProxyMiddleware({
   }
 });
 
-
 app.use((req, res, next) => {
+  const hostname = req.hostname.toLowerCase();
+  const route = routes[hostname];
 
-  const hostname =
-    req.hostname.toLowerCase();
-
-  const target =
-    routes[hostname];
-
-
-  if (!target) {
-    console.warn(
-      `Unknown hostname: ${hostname}`
-    );
-
-    return res
-      .status(404)
-      .send("Unknown service");
+  if (!route) {
+    return res.status(404).send("Unknown service");
   }
 
-
-  if (isScheduledMaintenance()) {
-    console.log(
-      `Scheduled maintenance: ${hostname}`
-    );
-
+  if (!isServiceOpen(route)) {
     return sendMaintenancePage(res);
   }
-
-
-  console.log(
-    `Proxying ${hostname} -> ${target}`
-  );
 
   return proxy(req, res, next);
 });
@@ -187,10 +198,14 @@ app.listen(
       `Maintenance gateway listening on ${PORT}`
     );
 
-    console.log(
-      `Maintenance window: ` +
-      `${MAINTENANCE_FROM}–${MAINTENANCE_UNTIL} ` +
-      `(${TIMEZONE})`
-    );
+    console.log(`Timezone: ${TIMEZONE}`);
+
+    for (const [hostname, route] of Object.entries(routes)) {
+      console.log(
+        `${route.name}: ${hostname} ` +
+        `${route.start}-${route.stop} ` +
+        `days=${route.days}`
+      );
+    }
   }
 );

@@ -81,9 +81,7 @@
       The services are temporarily unavailable.
     </p>
 
-    <p class="schedule">
-      Normal availability: 06:00–20:00
-    </p>
+    <p id="schedule" class="schedule"></p>
   </main>
 
   <script>
@@ -99,6 +97,12 @@
           hour12: false
         }).format(new Date());
     }
+
+    const config =
+    await fetch("/maintenance-config").then(r => r.json());
+
+    document.getElementById("schedule").textContent =
+    `Normal availability: ${config.until}–${config.from}`;
 
     updateClock();
     setInterval(updateClock, 1000);
